@@ -1,1 +1,83 @@
-asdasdas
+<?php
+// Conexión a la base de datos
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "tareas_db";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("Conexión fallida: " . $conn->connect_error);
+}
+
+// Crear tabla si no existe
+$sql = "CREATE TABLE IF NOT EXISTS tareas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    descripcion VARCHAR(255) NOT NULL,
+    estado ENUM('pendiente', 'completada') DEFAULT 'pendiente',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)";
+
+$conn->query($sql);
+
+// Agregar tarea
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['nueva_tarea'])) {
+    $desc = $conn->real_escape_string($_POST['nueva_tarea']);
+    $conn->query("INSERT INTO tareas (descripcion) VALUES ('$desc')");
+}
+
+// Actualizar estado
+if (isset($_GET['id']) && isset($_GET['estado'])) {
+    $id = intval($_GET['id']);
+    $estado = $_GET['estado'] == 'completada' ? 'completada' : 'pendiente';
+    $conn->query("UPDATE tareas SET estado='$estado' WHERE id=$id");
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit();
+}
+
+// Eliminar tarea
+if (isset($_GET['eliminar'])) {
+    $id = intval($_GET['eliminar']);
+    $conn->query("DELETE FROM tareas WHERE id=$id");
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit();
+}
+
+// Obtener tareas
+$resultado = $conn->query("SELECT * FROM tareas ORDER BY fecha_creacion DESC");
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Tareas</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; }
+        .tarea { padding: 10px; border: 1px solid #ddd; margin: 10px 0; border-radius: 5px; }
+        .completada { background-color: #e8f5e9; text-decoration: line-through; }
+        button { padding: 5px 10px; margin: 0 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Mi Lista de Tareas</h1>
+    
+    <form method="POST">
+        <input type="text" name="nueva_tarea" placeholder="Nueva tarea..." required>
+        <button type="submit">Agregar</button>
+    </form>
+
+    <?php while ($fila = $resultado->fetch_assoc()): ?>
+        <div class="tarea <?php echo $fila['estado'] == 'completada' ? 'completada' : ''; ?>">
+            <span><?php echo htmlspecialchars($fila['descripcion']); ?></span>
+            <button onclick="location.href='?id=<?php echo $fila['id']; ?>&estado=<?php echo $fila['estado'] == 'pendiente' ? 'completada' : 'pendiente'; ?>'">
+                <?php echo $fila['estado'] == 'pendiente' ? '✓ Completar' : '↺ Pendiente'; ?>
+            </button>
+            <button onclick="location.href='?eliminar=<?php echo $fila['id']; ?>'">Eliminar</button>
+        </div>
+    <?php endwhile; ?>
+
+    <?php $conn->close(); ?>
+</body>
+</html>
